@@ -14,6 +14,11 @@
             <div class="navigation">
                 <a href="{{ url_for('daily_view', date=prev_day) }}" class="nav-btn">← Prev</a>
                 <h1 class="date-title">{{ display_date }}</h1>
+                <div class="zoom-controls">
+                    <button type="button" class="nav-btn" onclick="modifyZoom(-1)" title="Zoom Out (-)">−</button>
+                    <button type="button" class="nav-btn" onclick="resetZoom()" title="Reset Zoom (0)">100%</button>
+                    <button type="button" class="nav-btn" onclick="modifyZoom(1)" title="Zoom In (+)">+</button>
+                </div>
                 <a href="{{ url_for('index') }}" class="nav-btn">Today</a>
                 <a href="{{ url_for('daily_view', date=next_day) }}" class="nav-btn">Next →</a>
             </div>
@@ -84,21 +89,25 @@
                     <div class="time-labels">
                         {% for hour in range(24) %}
                         {% if hour == 0 %}
-                        <div class="time-label" style="top: {{ hour * 60 }}px;">12 AM</div>
-                        {% elif hour < 12 %} <div class="time-label" style="top: {{ hour * 60 }}px;">{{ hour }} AM
+                        <div class="time-label" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}">12 AM
+                        </div>
+                        {% elif hour < 12 %} <div class="time-label" style="top: {{ hour * 60 }}px;"
+                            data-minutes="{{ hour * 60 }}">{{ hour }} AM
                     </div>
                     {% elif hour == 12 %}
-                    <div class="time-label" style="top: {{ hour * 60 }}px;">12 PM</div>
+                    <div class="time-label" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}">12 PM</div>
                     {% else %}
-                    <div class="time-label" style="top: {{ hour * 60 }}px;">{{ hour - 12 }} PM</div>
+                    <div class="time-label" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}">{{ hour - 12
+                        }} PM</div>
                     {% endif %}
                     {% endfor %}
                 </div>
 
                 <div class="timeline-grid">
                     {% for hour in range(24) %}
-                    <div class="hour-line" style="top: {{ hour * 60 }}px;"></div>
-                    <div class="half-hour-line" style="top: {{ hour * 60 + 30 }}px;"></div>
+                    <div class="hour-line" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}"></div>
+                    <div class="half-hour-line" style="top: {{ hour * 60 + 30 }}px;"
+                        data-minutes="{{ hour * 60 + 30 }}"></div>
                     {% endfor %}
 
                     <div class="events-container">
@@ -112,6 +121,7 @@
                                             width: calc({{ width_percent }}% - 2px);
                                             background-color: {{ event.tag_color }};
                                             border-left-color: {{ event.tag_color }};"
+                            data-start-minutes="{{ event.top_position }}" data-duration-minutes="{{ event.height }}"
                             onclick="toggleEventEdit({{ event.id }})">
 
                             <div class="event-block-content">
@@ -236,6 +246,107 @@
                 localStorage.setItem('lastEventEndDate', endDate);
             });
         });
+
+        // Zoom functionality
+        let zoomLevel = parseInt(localStorage.getItem('calendarZoomLevel')) || 60; // pixels per hour
+        const MIN_ZOOM = 30;
+        const MAX_ZOOM = 300;
+        const ZOOM_STEP = 15;
+
+        function updateZoom() {
+            console.log('Updating zoom to level:', zoomLevel);
+
+            // Update time labels
+            const labels = document.querySelectorAll('.time-label');
+            console.log('Found time labels:', labels.length);
+            labels.forEach(el => {
+                const minutes = parseInt(el.dataset.minutes);
+                if (!isNaN(minutes)) {
+                    el.style.top = `${(minutes / 60) * zoomLevel}px`;
+                }
+            });
+
+            // Update grid lines
+            const lines = document.querySelectorAll('.hour-line, .half-hour-line');
+            console.log('Found grid lines:', lines.length);
+            lines.forEach(el => {
+                const minutes = parseInt(el.dataset.minutes);
+                if (!isNaN(minutes)) {
+                    el.style.top = `${(minutes / 60) * zoomLevel}px`;
+                }
+            });
+
+            // Update events
+            const events = document.querySelectorAll('.event-block');
+            console.log('Found events:', events.length);
+            events.forEach(el => {
+                const startMinutes = parseInt(el.dataset.startMinutes);
+                const durationMinutes = parseInt(el.dataset.durationMinutes);
+
+                if (!isNaN(startMinutes) && !isNaN(durationMinutes)) {
+                    el.style.top = `${(startMinutes / 60) * zoomLevel}px`;
+                    el.style.height = `${(durationMinutes / 60) * zoomLevel}px`;
+                }
+            });
+
+            // Save state
+            localStorage.setItem('calendarZoomLevel', zoomLevel);
+        }
+
+        // Initialize zoom
+        if (zoomLevel !== 60) {
+            updateZoom(); // Apply saved zoom on load
+        }
+
+        // Helper functions for buttons and keys
+        window.modifyZoom = function (direction) {
+            if (direction > 0) {
+                if (zoomLevel < MAX_ZOOM) {
+                    zoomLevel += ZOOM_STEP;
+                    updateZoom();
+                } else {
+                    console.log('Max zoom reached');
+                }
+            } else {
+                if (zoomLevel > MIN_ZOOM) {
+                    zoomLevel -= ZOOM_STEP;
+                    updateZoom();
+                } else {
+                    console.log('Min zoom reached');
+                }
+            }
+        };
+
+        window.resetZoom = function () {
+            zoomLevel = 60;
+            updateZoom();
+        };
+
+        // Keyboard shortcuts - Use window and capture phase (true)
+        window.addEventListener('keydown', function (e) {
+            // Check for Cmd (Mac) or Ctrl (Windows/Linux)
+            if (e.metaKey || e.ctrlKey) {
+                if (e.key === '=' || e.key === '+' || e.code === 'Equal' || e.code === 'NumpadAdd') {
+                    // Zoom In
+                    console.log('Intercepting Zoom In');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modifyZoom(1);
+                } else if (e.key === '-' || e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
+                    // Zoom Out
+                    console.log('Intercepting Zoom Out');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modifyZoom(-1);
+                } else if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') {
+                    // Reset
+                    console.log('Intercepting Reset');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    resetZoom();
+                }
+            }
+        }, true); // Capture phase is CRITICAL for overriding browser shortcuts
     </script>
 </body>
 

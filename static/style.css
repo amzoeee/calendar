@@ -46,6 +46,16 @@ body {
     gap: 0.75rem;
 }
 
+.zoom-controls {
+    display: flex;
+    gap: 2px;
+}
+
+.zoom-controls .nav-btn {
+    padding: 0.4rem 0.6rem;
+    min-width: 32px;
+}
+
 .date-title {
     font-size: 1.25rem;
     font-weight: 500;
@@ -209,6 +219,7 @@ body {
     font-size: 0.7rem;
     color: var(--text-secondary);
     transform: translateY(-8px);
+    transition: top 0.2s ease;
 }
 
 .timeline-grid {
@@ -223,7 +234,9 @@ body {
     left: 0;
     right: 0;
     height: 1px;
+    height: 1px;
     background: var(--border);
+    transition: top 0.2s ease;
 }
 
 .half-hour-line {
@@ -231,7 +244,9 @@ body {
     left: 0;
     right: 0;
     height: 1px;
+    height: 1px;
     background: #2a2a2a;
+    transition: top 0.2s ease;
 }
 
 .events-container {
@@ -250,6 +265,7 @@ body {
     opacity: 0.9;
     z-index: 5;
     min-height: 5px;
+    transition: top 0.2s ease, height 0.2s ease;
 }
 
 .event-block:hover {
