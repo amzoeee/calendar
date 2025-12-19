@@ -2,14 +2,6 @@
 
 A simple, elegant Flask-based calendar application with daily view and persistent event storage.
 
-## Features
-
-- 📅 **Daily Calendar View** - View events for any day with easy navigation
-- ✨ **Event Management** - Add, edit, and delete events
-- 💾 **Data Persistence** - Uses SQLite database to save all events between server runs
-- 🎨 **Modern UI** - Beautiful, responsive design with smooth animations
-- ⏰ **Time Support** - Optional time field for events
-
 ## Setup
 
 1. **Clone or navigate to this directory**
@@ -48,7 +40,7 @@ All events are stored in a SQLite database file (`calendar.db`) which is created
 
 The application supports categorizing events with custom tags and colors.
 
-1.  **Customize Tags**: You can define your own categories in `tags.json`. Each tag has a `name`, a HEX `color`, and an `order` for display:
+1.  **Customize Tags**: You can define your own tags in `tags.json`. Each tag has a `name`, a HEX `color`, and an `order` for display:
     ```json
     {
         "tags": [
@@ -58,7 +50,6 @@ The application supports categorizing events with custom tags and colors.
     }
     ```
 2.  **Auto-Generation**: To ensure the app works out of the box, `create_default_tags.py` automatically generates a default `tags.json` file if one doesn't exist when the server starts.
-3.  **Privacy**: The `tags.json` file is ignored by Git, allowing you to maintain your own personal categories locally without affecting others.
 
 ## Project Structure
 
@@ -66,6 +57,7 @@ The application supports categorizing events with custom tags and colors.
 calendar/
 ├── app.py              # Main Flask application
 ├── database.py         # Database operations and schema
+├── create_default_tags.py # Default tag generation script
 ├── requirements.txt    # Python dependencies
 ├── templates/
 │   └── daily.html     # Daily view template
@@ -80,5 +72,3 @@ calendar/
 - **SQLite** - Lightweight database for data persistence
 - **HTML/CSS** - Frontend with modern styling
 - **JavaScript** - Event editing functionality
-
-Enjoy your calendar app! 🎉
