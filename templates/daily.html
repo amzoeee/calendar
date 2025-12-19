@@ -301,6 +301,14 @@
                 }
             });
 
+            // Update container heights explicitly to fix background cutoff bug
+            const totalHeight = zoomLevel * 24;
+            const timeLabels = document.querySelector('.time-labels');
+            const timelineGrid = document.querySelector('.timeline-grid');
+
+            if (timeLabels) timeLabels.style.height = `${totalHeight}px`;
+            if (timelineGrid) timelineGrid.style.height = `${totalHeight}px`;
+
             // Update events
             const events = document.querySelectorAll('.event-block');
             console.log('Found events:', events.length);
