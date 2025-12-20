@@ -16,6 +16,7 @@
                 <h1 class="date-title">{{ display_date }}</h1>
                 <a href="{{ url_for('index') }}" class="nav-btn">Today</a>
                 <a href="{{ url_for('daily_view', date=next_day) }}" class="nav-btn">Next →</a>
+                <a href="{{ url_for('weekly_view', date=date) }}" class="nav-btn view-toggle">Weekly View</a>
             </div>
         </header>
 

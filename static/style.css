@@ -203,6 +203,39 @@ body {
     border-radius: 6px;
 }
 
+/* Shared time labels for weekly view */
+.weekly-timeline-wrapper {
+    position: relative;
+    display: flex;
+    height: 600px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.weekly-time-labels {
+    position: sticky;
+    left: 0;
+    width: 60px;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    z-index: 5;
+    border-right: 1px solid var(--border);
+    /* overflow: hidden removed - was clipping time labels when scrolling */
+    height: 100%;
+}
+
+.weekly-time-labels .time-labels {
+    position: relative;
+}
+
+.weekly-grid {
+    display: flex;
+    width: 100%;
+    overflow-y: visible;
+    /* Allow content to exceed wrapper */
+}
+
 .time-labels {
     position: absolute;
     left: 0;
@@ -417,4 +450,87 @@ body {
     .timeline-container {
         height: 900px;
     }
+}
+
+/* Weekly View Styles */
+.weekly-grid {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+}
+
+.day-column {
+    flex: 1;
+    flex-shrink: 0;
+    min-width: 140px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.day-column:first-child {
+    border-left: 1px solid var(--border);
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+}
+
+.day-column:last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+.day-header {
+    background: var(--bg-tertiary);
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.day-name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.day-date {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.timeline-container-weekly {
+    position: relative;
+    background: var(--bg-primary);
+    /* No individual scroll */
+}
+
+.timeline-container-weekly .timeline-grid {
+    margin-left: 0;
+    /* No left margin since we have shared labels */
+}
+
+/* Override timeline styles for weekly view to be more compact */
+.day-column .event-block {
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.day-column .event-block-content {
+    padding: 0.25rem 0.5rem;
+}
+
+.view-toggle {
+    background: var(--accent);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.view-toggle:hover {
+    background: #707070;
 }

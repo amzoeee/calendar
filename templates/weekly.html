@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly View - {{ week_data[0].day_display }} to {{ week_data[6].day_display }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <header class="calendar-header">
+            <div class="navigation">
+                <a href="{{ url_for('weekly_view', date=prev_week) }}" class="nav-btn">← Prev Week</a>
+                <h1 class="date-title">Week of {{ week_data[0].day_display }}</h1>
+                <a href="{{ url_for('weekly_view', date=today) }}" class="nav-btn">This Week</a>
+                <a href="{{ url_for('weekly_view', date=next_week) }}" class="nav-btn">Next Week →</a>
+                <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn view-toggle">Daily View</a>
+            </div>
+        </header>
+
+        <main class="calendar-content">
+            <section class="timeline-section">
+                <div class="timeline-header"
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <h2 style="margin-bottom: 0;">Weekly View</h2>
+                    <div class="zoom-controls">
+                        <button type="button" class="nav-btn" onclick="modifyZoom(-1)" title="Zoom Out (-)">−</button>
+                        <button type="button" class="nav-btn" onclick="resetZoom()" title="Reset Zoom (0)">100%</button>
+                        <button type="button" class="nav-btn" onclick="modifyZoom(1)" title="Zoom In (+)">+</button>
+                    </div>
+                </div>
+
+                <div class="weekly-timeline-wrapper">
+                    <!-- Shared time labels for all columns -->
+                    <div class="weekly-time-labels">
+                        <div class="time-labels">
+                            {% for hour in range(24) %}
+                            {% if hour == 0 %}
+                            <div class="time-label" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}">12 AM
+                            </div>
+                            {% elif hour < 12 %} <div class="time-label" style="top: {{ hour * 60 }}px;"
+                                data-minutes="{{ hour * 60 }}">{{ hour }} AM
+                        </div>
+                        {% elif hour == 12 %}
+                        <div class="time-label" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}">12 PM
+                        </div>
+                        {% else %}
+                        <div class="time-label" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}">{{ hour -
+                            12 }} PM</div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="weekly-grid">
+                    {% for day in week_data %}
+                    <div class="day-column">
+                        <div class="day-header">
+                            <div class="day-name">{{ day.day_name }}</div>
+                            <div class="day-date">{{ day.day_display }}</div>
+                        </div>
+
+                        <div class="timeline-container-weekly">
+                            <div class="timeline-grid">
+                                {% for hour in range(24) %}
+                                <div class="hour-line" style="top: {{ hour * 60 }}px;" data-minutes="{{ hour * 60 }}">
+                                </div>
+                                <div class="half-hour-line" style="top: {{ hour * 60 + 30 }}px;"
+                                    data-minutes="{{ hour * 60 + 30 }}"></div>
+                                {% endfor %}
+
+                                <div class="events-container">
+                                    {% for event in day.events %}
+                                    {% set width_percent = (100 / event.get('overlap_total', 1)) %}
+                                    {% set left_percent = (event.get('overlap_column', 0) * width_percent) %}
+
+                                    <div class="event-block" style="top: {{ event.start_minutes }}px; 
+                                                    height: {{ event.duration }}px;
+                                                    left: {{ left_percent }}%;
+                                                    width: calc({{ width_percent }}% - 2px);
+                                                    background-color: {{ event.color }};
+                                                    border-left-color: {{ event.color }};"
+                                        data-start-minutes="{{ event.start_minutes }}"
+                                        data-duration-minutes="{{ event.duration }}" data-title="{{ event.title }}"
+                                        data-start-time="{{ event.start_time }}" data-end-time="{{ event.end_time }}"
+                                        onclick="toggleEventEdit({{ event.id }})">
+
+                                        <div class="event-block-content">
+                                            <span class="event-title">{{ event.title }}</span>
+                                            <span class="event-time">, {{ event.start_time }} - {{ event.end_time
+                                                }}</span>
+                                        </div>
+
+                                        <div class="event-edit-overlay" id="edit-overlay-{{ event.id }}"
+                                            style="display: none;">
+                                            <form action="{{ url_for('update_event', event_id=event.id) }}"
+                                                method="POST" class="event-edit-form" onclick="event.stopPropagation();"
+                                                onsubmit="return prepareEditForm(this);">
+                                                <input type="hidden" name="date" value="{{ day.date }}">
+                                                <input type="hidden" name="view" value="weekly">
+                                                <input type="hidden" name="start_datetime"
+                                                    class="edit-start-datetime-hidden">
+                                                <input type="hidden" name="end_datetime"
+                                                    class="edit-end-datetime-hidden">
+
+                                                <input type="text" name="title" value="{{ event.title }}"
+                                                    placeholder="Title">
+                                                <select name="tag">
+                                                    <option value="">None</option>
+                                                    {% for tag in tags %}
+                                                    <option value="{{ tag.name }}" {% if tag.name==event.tag
+                                                        %}selected{% endif %}>
+                                                        {{ tag.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+
+                                                <div class="form-row single-line-times">
+                                                    <input type="date" class="edit-start-date"
+                                                        value="{{ event.start_datetime_local.split('T')[0] }}" required>
+                                                    <input type="time" class="edit-start-time"
+                                                        value="{{ event.start_datetime_local.split('T')[1] }}" required>
+                                                    <span class="time-separator">-</span>
+                                                    <input type="date" class="edit-end-date"
+                                                        value="{{ event.end_datetime_local.split('T')[0] }}" required>
+                                                    <input type="time" class="edit-end-time"
+                                                        value="{{ event.end_datetime_local.split('T')[1] }}" required>
+                                                </div>
+
+                                                <textarea name="description" rows="2"
+                                                    placeholder="Description">{{ event.description or '' }}</textarea>
+
+                                                <div class="edit-actions">
+                                                    <button type="submit" class="btn btn-sm">Save</button>
+                                                    <button type="button"
+                                                        onclick="event.stopPropagation(); toggleEventEdit({{ event.id }})"
+                                                        class="btn btn-sm">Cancel</button>
+                                                </div>
+                                            </form>
+                                            <form action="{{ url_for('delete_event', event_id=event.id) }}"
+                                                method="POST" onclick="event.stopPropagation();"
+                                                onsubmit="return confirm('Delete?');">
+                                                <input type="hidden" name="date" value="{{ day.date }}">
+                                                <input type="hidden" name="view" value="weekly">
+                                                <button type="submit" class="btn btn-sm btn-danger"
+                                                    style="width: 100%; margin-top: 4px;">Delete</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+    </div>
+    </section>
+    </main>
+    </div>
+
+    <script>
+        function toggleEventEdit(eventId) {
+            // Close all other overlays
+            document.querySelectorAll('.event-block.editing').forEach(el => {
+                if (el.querySelector(`#edit-overlay-${eventId}`) === null) {
+                    el.classList.remove('editing');
+                    const otherOverlay = el.querySelector('.event-edit-overlay');
+                    if (otherOverlay) otherOverlay.style.display = 'none';
+                }
+            });
+
+            const overlay = document.getElementById(`edit-overlay-${eventId}`);
+            const eventBlock = overlay.closest('.event-block');
+
+            if (overlay) {
+                const isHidden = overlay.style.display === 'none';
+                overlay.style.display = isHidden ? 'block' : 'none';
+
+                if (isHidden) {
+                    eventBlock.classList.add('editing');
+                } else {
+                    eventBlock.classList.remove('editing');
+                }
+            }
+        }
+
+        function prepareEditForm(form) {
+            const startDate = form.querySelector('.edit-start-date').value;
+            const startTime = form.querySelector('.edit-start-time').value;
+            const endDate = form.querySelector('.edit-end-date').value;
+            const endTime = form.querySelector('.edit-end-time').value;
+
+            form.querySelector('.edit-start-datetime-hidden').value = `${startDate}T${startTime}`;
+            form.querySelector('.edit-end-datetime-hidden').value = `${endDate}T${endTime}`;
+
+            return true;
+        }
+
+        // Zoom functionality (reused from daily view)
+        let zoomLevel = parseInt(localStorage.getItem('calendarZoomLevel')) || 60; // pixels per hour
+        const MIN_ZOOM = 30;
+        const MAX_ZOOM = 300;
+        const ZOOM_STEP = 15;
+
+        function updateZoom() {
+            console.log('Updating zoom to level:', zoomLevel);
+
+            // Update all time labels across all columns
+            const labels = document.querySelectorAll('.time-label');
+            labels.forEach(el => {
+                const minutes = parseInt(el.dataset.minutes);
+                if (!isNaN(minutes)) {
+                    el.style.top = `${(minutes / 60) * zoomLevel}px`;
+                }
+            });
+
+            // Update all grid lines across all columns
+            const lines = document.querySelectorAll('.hour-line, .half-hour-line');
+            lines.forEach(el => {
+                const minutes = parseInt(el.dataset.minutes);
+                if (!isNaN(minutes)) {
+                    el.style.top = `${(minutes / 60) * zoomLevel}px`;
+                }
+            });
+
+            // Update container heights
+            const totalHeight = zoomLevel * 24;
+            const timeLabelsAll = document.querySelectorAll('.time-labels');
+            const timelineGridsAll = document.querySelectorAll('.timeline-grid');
+            const timelineContainersWeekly = document.querySelectorAll('.timeline-container-weekly');
+            const dayColumns = document.querySelectorAll('.day-column');
+
+            // Get header height from first day-header
+            const firstHeader = document.querySelector('.day-header');
+            const headerHeight = firstHeader ? firstHeader.offsetHeight : 0;
+
+            const weeklyGrid = document.querySelector('.weekly-grid');
+            if (weeklyGrid) {
+                weeklyGrid.style.height = `${totalHeight + headerHeight}px`;
+            }
+
+            // Don't touch time labels - they work fine with CSS
+            // Only set the grid content heights
+            timeLabelsAll.forEach(el => {
+                el.style.height = `${totalHeight}px`;
+                el.style.top = `${headerHeight}px`; // Position below headers (absolute positioned)
+            });
+            timelineGridsAll.forEach(el => el.style.height = `${totalHeight}px`);
+            timelineContainersWeekly.forEach(el => el.style.height = `${totalHeight}px`);
+            dayColumns.forEach(el => el.style.height = `${totalHeight + headerHeight}px`);
+
+            // Update all events across all columns
+            const events = document.querySelectorAll('.event-block');
+            events.forEach(el => {
+                const startMinutes = parseInt(el.dataset.startMinutes);
+                const durationMinutes = parseInt(el.dataset.durationMinutes);
+
+                if (!isNaN(startMinutes) && !isNaN(durationMinutes)) {
+                    const top = (startMinutes / 60) * zoomLevel;
+                    const height = (durationMinutes / 60) * zoomLevel;
+
+                    el.style.top = `${top}px`;
+                    el.style.height = `${height}px`;
+
+                    // Handle layout for small vs large events
+                    if (height < 35) {
+                        el.classList.add('small-event');
+                    } else {
+                        el.classList.remove('small-event');
+                    }
+
+                    // Dynamic text logic
+                    const timeSpan = el.querySelector('.event-time');
+                    const startTime = el.dataset.startTime;
+                    const endTime = el.dataset.endTime;
+
+                    if (timeSpan) {
+                        if (height < 30) {
+                            timeSpan.textContent = `, ${startTime}`;
+                            timeSpan.style.display = 'inline';
+                        } else {
+                            timeSpan.textContent = `, ${startTime} - ${endTime}`;
+                            timeSpan.style.display = 'inline';
+                        }
+                    }
+                }
+            });
+
+            // Save state
+            localStorage.setItem('calendarZoomLevel', zoomLevel);
+        }
+
+        // Initialize zoom
+        updateZoom();
+
+        // Helper functions for buttons and keys
+        window.modifyZoom = function (direction) {
+            if (direction > 0) {
+                if (zoomLevel < MAX_ZOOM) {
+                    zoomLevel += ZOOM_STEP;
+                    updateZoom();
+                }
+            } else {
+                if (zoomLevel > MIN_ZOOM) {
+                    zoomLevel -= ZOOM_STEP;
+                    updateZoom();
+                }
+            }
+        };
+
+        window.resetZoom = function () {
+            zoomLevel = 60;
+            updateZoom();
+        };
+
+        // Keyboard shortcuts
+        window.addEventListener('keydown', function (e) {
+            if (e.metaKey || e.ctrlKey) {
+                if (e.key === '=' || e.key === '+' || e.code === 'Equal' || e.code === 'NumpadAdd') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modifyZoom(1);
+                } else if (e.key === '-' || e.key === '_' || e.code === 'Minus' || e.code === 'NumpadSubtract') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    modifyZoom(-1);
+                } else if (e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    resetZoom();
+                }
+            }
+        }, true);
+
+        // Scroll Position Restoration (from daily.html)
+        function saveScrollPosition() {
+            const container = document.querySelector('.weekly-timeline-wrapper');
+            if (container) {
+                localStorage.setItem('calendarScrollPos', container.scrollTop);
+                localStorage.setItem('calendarWindowScroll', window.scrollY);
+            }
+        }
+
+        function restoreScrollPosition() {
+            if ('scrollRestoration' in history) {
+                history.scrollRestoration = 'manual';
+            }
+
+            const savedPos = localStorage.getItem('calendarScrollPos');
+            const savedWindowPos = localStorage.getItem('calendarWindowScroll');
+            const container = document.querySelector('.weekly-timeline-wrapper');
+
+            // Restore Window Scroll first
+            if (savedWindowPos) {
+                window.scrollTo(0, parseInt(savedWindowPos));
+                localStorage.removeItem('calendarWindowScroll');
+            }
+
+            if (savedPos && container) {
+                // Don't call updateZoom here - it's already called on page load
+                const rawTarget = parseInt(savedPos);
+
+                const attemptScroll = (retries) => {
+                    const maxScroll = container.scrollHeight - container.clientHeight;
+                    const targetPos = Math.min(rawTarget, Math.max(0, maxScroll));
+
+                    container.scrollTop = targetPos;
+                    const current = container.scrollTop;
+
+                    if (Math.abs(current - targetPos) > 2 && retries > 0) {
+                        setTimeout(() => attemptScroll(retries - 1), 100);
+                    } else {
+                        localStorage.removeItem('calendarScrollPos');
+                    }
+                };
+
+                setTimeout(() => attemptScroll(5), 50);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            restoreScrollPosition();
+        });
+
+        // Use event delegation for form submits
+        document.addEventListener('submit', function (e) {
+            if (e.target.tagName === 'FORM') {
+                saveScrollPosition();
+            }
+        });
+    </script>
+</body>
+
+</html>

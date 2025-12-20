@@ -33,6 +33,22 @@ def get_tag_color(tag_name, tags):
             return tag['color']
     return "#6b7280"  # Default gray
 
+def get_week_range(date_str):
+    """Get the Sunday-Saturday range for the week containing the given date
+    
+    Args:
+        date_str: Date string in 'YYYY-MM-DD' format
+        
+    Returns:
+        tuple: (sunday_date, saturday_date) as date objects
+    """
+    date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    # Find the most recent Sunday (0 = Monday, 6 = Sunday in weekday())
+    days_since_sunday = (date.weekday() + 1) % 7
+    sunday = date - timedelta(days=days_since_sunday)
+    saturday = sunday + timedelta(days=6)
+    return (sunday, saturday)
+
 def events_overlap(event1, event2):
     """Check if two events overlap in time"""
     start1 = datetime.strptime(event1['start_datetime'], '%Y-%m-%d %H:%M:%S')
@@ -232,6 +248,7 @@ def update_event(event_id):
     tag = request.form.get('tag', '')
     start_datetime = request.form.get('start_datetime')
     end_datetime = request.form.get('end_datetime')
+    view_type = request.form.get('view', 'daily')  # Get which view to return to
     
     if title and start_datetime and end_datetime:
         # Convert from datetime-local format to database format
@@ -247,14 +264,104 @@ def update_event(event_id):
         
         database.update_event(event_id, start_datetime_str, end_datetime_str, title, description, tag)
     
+    if view_type == 'weekly':
+        return redirect(url_for('weekly_view', date=date))
     return redirect(url_for('daily_view', date=date))
 
 @app.route('/delete_event/<int:event_id>', methods=['POST'])
 def delete_event(event_id):
-    """Delete an event."""
-    date = request.form.get('date')
+    """Delete an event"""
+    date = request.form['date']
+    view_type = request.form.get('view', 'daily')
+    
     database.delete_event(event_id)
+    
+    if view_type == 'weekly':
+        return redirect(url_for('weekly_view', date=date))
     return redirect(url_for('daily_view', date=date))
+
+@app.route('/weekly/<date>')
+def weekly_view(date):
+    """Display the weekly calendar view for a week containing the given date."""
+    try:
+        # Parse the date and get the week range
+        sunday, saturday = get_week_range(date)
+    except ValueError:
+        # If invalid date, redirect to today's week
+        today = datetime.now().strftime('%Y-%m-%d')
+        return redirect(url_for('weekly_view', date=today))
+    
+    # Calculate previous and next week (move by 7 days)
+    prev_week = (sunday - timedelta(days=7)).strftime('%Y-%m-%d')
+    next_week = (sunday + timedelta(days=7)).strftime('%Y-%m-%d')
+    
+    # Load tags
+    tags = load_tags()
+    
+    # Get events for all 7 days
+    week_data = []
+    current_day = sunday
+    for i in range(7):
+        day_str = current_day.strftime('%Y-%m-%d')
+        day_name = current_day.strftime('%a')  # Sun, Mon, etc.
+        day_display = current_day.strftime('%m/%d')  # 12/17
+        
+        # Get events for this day
+        events = database.get_events_by_date(day_str)
+        
+        # Process events (similar to daily view)
+        processed_events = []
+        for event in events:
+            event_dict = dict(event)
+            
+            # Parse datetimes
+            start_dt = datetime.strptime(event['start_datetime'], '%Y-%m-%d %H:%M:%S')
+            end_dt = datetime.strptime(event['end_datetime'], '%Y-%m-%d %H:%M:%S')
+            
+            # Calculate positioning
+            start_minutes = start_dt.hour * 60 + start_dt.minute
+            end_minutes = end_dt.hour * 60 + end_dt.minute
+            duration_minutes = end_minutes - start_minutes
+            
+            # Format times
+            event_dict['start_time'] = start_dt.strftime('%I:%M%p').lstrip('0').lower()
+            event_dict['end_time'] = end_dt.strftime('%I:%M%p').lstrip('0').lower()
+            
+            # For data attributes
+            event_dict['start_minutes'] = start_minutes
+            event_dict['duration'] = duration_minutes
+            
+            # Get tag color
+            if event_dict.get('tag'):
+                event_dict['color'] = get_tag_color(event_dict['tag'], tags)
+            else:
+                event_dict['color'] = '#6b7280'
+            
+            # Add ISO format for editing
+            event_dict['start_datetime_local'] = start_dt.strftime('%Y-%m-%dT%H:%M')
+            event_dict['end_datetime_local'] = end_dt.strftime('%Y-%m-%dT%H:%M')
+            
+            processed_events.append(event_dict)
+        
+        # Calculate overlap columns for this day's events
+        processed_events = calculate_overlap_columns(processed_events)
+        
+        week_data.append({
+            'date': day_str,
+            'day_name': day_name,
+            'day_display': day_display,
+            'events': processed_events
+        })
+        
+        current_day += timedelta(days=1)
+    
+    return render_template('weekly.html',
+                         week_data=week_data,
+                         sunday_date=sunday.strftime('%Y-%m-%d'),
+                         today=datetime.now().strftime('%Y-%m-%d'),
+                         tags=tags,
+                         prev_week=prev_week,
+                         next_week=next_week)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
