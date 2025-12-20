@@ -253,10 +253,36 @@
                     eventBlock.classList.add('editing');
                     // Set up keyboard shortcuts for this overlay
                     setupOverlayKeyboardShortcuts(overlay, eventId);
+                    // Set up click outside to close
+                    setupClickOutsideToClose(overlay, eventId);
                 } else {
                     eventBlock.classList.remove('editing');
                 }
             }
+        }
+
+        function setupClickOutsideToClose(overlay, eventId) {
+            // Remove any existing handler to avoid duplicates
+            if (overlay.clickOutsideHandler) {
+                document.removeEventListener('click', overlay.clickOutsideHandler, true);
+            }
+
+            // Small delay to prevent the opening click from immediately closing it
+            setTimeout(() => {
+                overlay.clickOutsideHandler = function (e) {
+                    // Only handle if this overlay is visible
+                    if (overlay.style.display === 'none') return;
+
+                    // Check if click is outside the overlay
+                    if (!overlay.contains(e.target) && !overlay.closest('.event-block').contains(e.target)) {
+                        toggleEventEdit(eventId);
+                        // Clean up the handler
+                        document.removeEventListener('click', overlay.clickOutsideHandler, true);
+                    }
+                };
+
+                document.addEventListener('click', overlay.clickOutsideHandler, true);
+            }, 10);
         }
 
         function setupOverlayKeyboardShortcuts(overlay, eventId) {
