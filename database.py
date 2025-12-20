@@ -186,5 +186,78 @@ def bulk_add_events(events, tag=''):
     
     return imported_count
 
+
+def get_tag_hours_for_week(start_date, end_date):
+    """Get cumulative hours per tag for each day in a week.
+    
+    Handles multi-day events by clipping to day boundaries.
+    Handles overlapping events (can result in >24 hours per day).
+    
+    Args:
+        start_date: Week start date string 'YYYY-MM-DD'
+        end_date: Week end date string 'YYYY-MM-DD'
+    
+    Returns:
+        dict: {date_str: {tag: hours}}
+    """
+    from datetime import datetime, timedelta
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get all events that overlap with the week
+    cursor.execute('''
+        SELECT id, start_datetime, end_datetime, tag
+        FROM events
+        WHERE start_datetime < ? AND end_datetime > ?
+        ORDER BY start_datetime
+    ''', (end_date, start_date))
+    
+    events = cursor.fetchall()
+    conn.close()
+    
+    # Initialize result dict
+    result = {}
+    current_date = datetime.strptime(start_date, '%Y-%m-%d')
+    end_date_dt = datetime.strptime(end_date, '%Y-%m-%d')
+    
+    while current_date < end_date_dt:
+        date_str = current_date.strftime('%Y-%m-%d')
+        result[date_str] = {}
+        current_date += timedelta(days=1)
+    
+    # Process each event
+    for event in events:
+        start_dt = datetime.strptime(event['start_datetime'], '%Y-%m-%d %H:%M:%S')
+        end_dt = datetime.strptime(event['end_datetime'], '%Y-%m-%d %H:%M:%S')
+        tag = event['tag'] if event['tag'] else 'Untagged'
+        
+        # Iterate through each day this event spans
+        current_day = datetime.strptime(start_date, '%Y-%m-%d')
+        while current_day < end_date_dt:
+            day_start = datetime.combine(current_day, datetime.min.time())
+            day_end = datetime.combine(current_day, datetime.max.time())
+            
+            # Check if event overlaps with this day
+            if start_dt <= day_end and end_dt >= day_start:
+                # Clip event to day boundaries
+                clipped_start = max(start_dt, day_start)
+                clipped_end = min(end_dt, day_end)
+                
+                # Calculate duration in hours
+                duration_seconds = (clipped_end - clipped_start).total_seconds()
+                duration_hours = duration_seconds / 3600.0
+                
+                # Add to result
+                date_str = current_day.strftime('%Y-%m-%d')
+                if tag not in result[date_str]:
+                    result[date_str][tag] = 0
+                result[date_str][tag] += duration_hours
+            
+            current_day += timedelta(days=1)
+    
+    return result
+
+
 # Initialize the database when the module is imported
 init_db()

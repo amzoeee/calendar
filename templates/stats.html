@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Stats</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .stats-container {
+            max-width: 1200px;
+            margin: 1rem auto;
+        }
+
+        .chart-wrapper {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .chart-container {
+            display: flex;
+            align-items: flex-end;
+            height: 400px;
+            gap: 1rem;
+            position: relative;
+            padding-left: 40px;
+        }
+
+        /* Y-axis */
+        .y-axis {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .y-label {
+            text-align: right;
+            padding-right: 0.5rem;
+        }
+
+        /* Grid lines */
+        .grid-lines {
+            position: absolute;
+            left: 40px;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .grid-line {
+            width: 100%;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* Day bars */
+        .day-bar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            position: relative;
+        }
+
+        .bar-stack {
+            width: 100%;
+            display: flex;
+            flex-direction: column-reverse;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .bar-segment {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 500;
+            min-height: 20px;
+            position: relative;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .bar-label {
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .bar-total {
+            margin-top: 0.25rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Averages section */
+        .averages-container {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .averages-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .averages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .average-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        .tag-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .tag-name {
+            flex: 1;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .tag-hours {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container stats-container">
+        <header class="calendar-header">
+            <div class="navigation">
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="{{ url_for('stats_view', date=prev_week) }}" class="nav-btn">←</a>
+                    <a href="{{ url_for('stats_view', date=sunday_date) }}" class="nav-btn">Today</a>
+                    <a href="{{ url_for('stats_view', date=next_week) }}" class="nav-btn">→</a>
+                </div>
+
+                <h1 class="date-title">Weekly Stats</h1>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn">Daily</a>
+                    <a href="{{ url_for('weekly_view', date=sunday_date) }}" class="nav-btn">Weekly</a>
+                    <a href="{{ url_for('stats_view', date=sunday_date) }}" class="nav-btn view-toggle">Stats</a>
+                </div>
+            </div>
+        </header>
+
+        <div class="chart-wrapper">
+            <h2 class="chart-title">Hours by Tag per Day</h2>
+
+            <div class="chart-container">
+                <!-- Y-axis labels -->
+                <div class="y-axis">
+                    {% for i in range(5) %}
+                    <div class="y-label">{{ (max_scale - (max_scale * i // 4))|round|int }}h</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Grid lines -->
+                <div class="grid-lines">
+                    {% for i in range(5) %}
+                    <div class="grid-line"></div>
+                    {% endfor %}
+                </div>
+
+                <!-- Day bars -->
+                {% for day in week_data %}
+                <div class="day-bar">
+                    {% if day.total > 0 %}
+                    {% set height_px = ((day.total / max_scale) * 400) %}
+                    <div class="bar-stack" style="height: {{ height_px }}px;">
+                        {% for tag in all_tags %}
+                        {% if day.hours.get(tag, 0) > 0 %}
+                        {% set hours = day.hours[tag] %}
+                        <div class="bar-segment"
+                            style="height: {{ (hours / day.total * 100)|round }}%; background-color: {{ tag_colors.get(tag, '#6b7280') }};"
+                            title="{{ tag }}: {{ '%.1f'|format(hours) }}h">
+                            {% if hours >= 0.3 %}{{ '%.1f'|format(hours) }}h{% endif %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="bar-label">{{ day.day_name }}</div>
+                    <div class="bar-total">{{ '%.1f'|format(day.total) }}h</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="averages-container">
+            <h3 class="averages-title">Weekly Averages</h3>
+            <div class="averages-grid">
+                {% for tag in all_tags|sort %}
+                <div class="average-item">
+                    <div class="tag-indicator" style="background-color: {{ tag_colors.get(tag, '#6b7280') }};"></div>
+                    <span class="tag-name">{{ tag }}</span>
+                    <span class="tag-hours">{{ '%.1f'|format(tag_averages[tag]) }}h/day</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

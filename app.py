@@ -378,6 +378,83 @@ def weekly_view(date):
                          prev_week=prev_week,
                          next_week=next_week)
 
+
+@app.route('/stats/<date>')
+def stats_view(date):
+    """Display weekly tag statistics."""
+    try:
+        # Parse the date and get the week range
+        sunday, saturday = get_week_range(date)
+    except ValueError:
+        # If invalid date, redirect to today's week
+        today = datetime.now().strftime('%Y-%m-%d')
+        return redirect(url_for('stats_view', date=today))
+    
+    # Calculate previous and next week
+    prev_week = (sunday - timedelta(days=7)).strftime('%Y-%m-%d')
+    next_week = (sunday + timedelta(days=7)).strftime('%Y-%m-%d')
+    
+    # Load tags
+    tags = load_tags()
+    
+    # Get tag hours for the week
+    start_date = sunday.strftime('%Y-%m-%d')
+    end_date = (saturday + timedelta(days=1)).strftime('%Y-%m-%d')  # End is exclusive
+    tag_hours = database.get_tag_hours_for_week(start_date, end_date)
+    
+    # Build day data with tag hours
+    week_data = []
+    current_day = sunday
+    all_tags_set = set()
+    max_hours = 0
+    
+    for i in range(7):
+        day_str = current_day.strftime('%Y-%m-%d')
+        day_name = current_day.strftime('%a')
+        
+        day_hours = tag_hours.get(day_str, {})
+        total_hours = sum(day_hours.values())
+        max_hours = max(max_hours, total_hours)
+        
+        # Track all tags
+        all_tags_set.update(day_hours.keys())
+        
+        week_data.append({
+            'date': day_str,
+            'day_name': day_name,
+            'hours': day_hours,
+            'total': total_hours
+        })
+        
+        current_day += timedelta(days=1)
+    
+    # Calculate weekly averages per tag
+    tag_averages = {}
+    for tag in all_tags_set:
+        total = sum(day['hours'].get(tag, 0) for day in week_data)
+        tag_averages[tag] = total / 7.0
+    
+    # Create tag color lookup dict
+    tag_colors = {}
+    for tag_obj in tags:
+        tag_colors[tag_obj['name']] = tag_obj['color']
+    tag_colors['Untagged'] = '#6b7280'  # Default gray for untagged
+    
+    # Round max_hours up to next whole number for scale
+    max_scale = int(max_hours) + 1 if max_hours > 0 else 24
+    
+    return render_template('stats.html',
+                         week_data=week_data,
+                         tags=tags,
+                         all_tags=sorted(all_tags_set),
+                         tag_averages=tag_averages,
+                         tag_colors=tag_colors,
+                         max_scale=max_scale,
+                         sunday_date=sunday.strftime('%Y-%m-%d'),
+                         prev_week=prev_week,
+                         next_week=next_week)
+
+
 @app.route('/import_ics', methods=['POST'])
 def import_ics():
     """Import events from an uploaded .ics file."""
