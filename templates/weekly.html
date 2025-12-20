@@ -461,9 +461,11 @@
 
             if (e.key === 'ArrowLeft') {
                 // Previous week
+                saveScrollPosition();
                 window.location.href = '{{ url_for("weekly_view", date=prev_week) }}';
             } else if (e.key === 'ArrowRight') {
                 // Next week
+                saveScrollPosition();
                 window.location.href = '{{ url_for("weekly_view", date=next_week) }}';
             }
         });

@@ -527,9 +527,11 @@
 
             if (e.key === 'ArrowLeft') {
                 // Previous day
+                saveScrollPosition();
                 window.location.href = '{{ url_for("daily_view", date=prev_day) }}';
             } else if (e.key === 'ArrowRight') {
                 // Next day
+                saveScrollPosition();
                 window.location.href = '{{ url_for("daily_view", date=next_day) }}';
             }
         });
