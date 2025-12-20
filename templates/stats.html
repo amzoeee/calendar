@@ -41,7 +41,7 @@
             position: absolute;
             left: 0;
             top: 0;
-            bottom: 0;
+            bottom: 60px;
             width: 40px;
             display: flex;
             flex-direction: column;
@@ -53,6 +53,7 @@
         .y-label {
             text-align: right;
             padding-right: 0.5rem;
+            line-height: 1;
         }
 
         /* Grid lines */
@@ -61,7 +62,7 @@
             left: 40px;
             right: 0;
             top: 0;
-            bottom: 0;
+            bottom: 60px;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -89,7 +90,6 @@
             display: flex;
             flex-direction: column-reverse;
             border-radius: 4px 4px 0 0;
-            overflow: hidden;
             flex-shrink: 0;
         }
 
@@ -101,7 +101,6 @@
             color: white;
             font-size: 0.75rem;
             font-weight: 500;
-            min-height: 20px;
             position: relative;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         }
@@ -197,14 +196,17 @@
                 <!-- Y-axis labels -->
                 <div class="y-axis">
                     {% for i in range(5) %}
-                    <div class="y-label">{{ (max_scale - (max_scale * i // 4))|round|int }}h</div>
+                    {% set top_pct = (i * 25) %}
+                    <div class="y-label" style="top: {{ top_pct }}%;">{{ (max_scale - (max_scale * i // 4))|round|int
+                        }}h</div>
                     {% endfor %}
                 </div>
 
                 <!-- Grid lines -->
                 <div class="grid-lines">
                     {% for i in range(5) %}
-                    <div class="grid-line"></div>
+                    {% set top_pct = (i * 25) %}
+                    <div class="grid-line" style="top: {{ top_pct }}%;"></div>
                     {% endfor %}
                 </div>
 
@@ -212,7 +214,7 @@
                 {% for day in week_data %}
                 <div class="day-bar">
                     {% if day.total > 0 %}
-                    {% set height_px = ((day.total / max_scale) * 400) %}
+                    {% set height_px = ((day.total / max_scale) * 340) %}
                     <div class="bar-stack" style="height: {{ height_px }}px;">
                         {% for tag in all_tags %}
                         {% if day.hours.get(tag, 0) > 0 %}
@@ -220,7 +222,7 @@
                         <div class="bar-segment"
                             style="height: {{ (hours / day.total * 100)|round }}%; background-color: {{ tag_colors.get(tag, '#6b7280') }};"
                             title="{{ tag }}: {{ '%.1f'|format(hours) }}h">
-                            {% if hours >= 0.3 %}{{ '%.1f'|format(hours) }}h{% endif %}
+                            {% if hours >= 0.5 %}{{ '%.1f'|format(hours) }}h{% endif %}
                         </div>
                         {% endif %}
                         {% endfor %}
