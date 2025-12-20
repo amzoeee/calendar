@@ -322,16 +322,27 @@ def weekly_view(date):
             start_dt = datetime.strptime(event['start_datetime'], '%Y-%m-%d %H:%M:%S')
             end_dt = datetime.strptime(event['end_datetime'], '%Y-%m-%d %H:%M:%S')
             
-            # Calculate positioning
-            start_minutes = start_dt.hour * 60 + start_dt.minute
-            end_minutes = end_dt.hour * 60 + end_dt.minute
+            # Clip to current day boundaries for display
+            day_start = datetime.combine(current_day, datetime.min.time())
+            day_end = datetime.combine(current_day, datetime.max.time())
+            
+            clipped_start = max(start_dt, day_start)
+            clipped_end = min(end_dt, day_end)
+            
+            # Skip events that don't overlap with this day
+            if clipped_start >= day_end or clipped_end <= day_start:
+                continue
+            
+            # Calculate positioning based on clipped times
+            start_minutes = clipped_start.hour * 60 + clipped_start.minute
+            end_minutes = clipped_end.hour * 60 + clipped_end.minute
             duration_minutes = end_minutes - start_minutes
             
-            # Format times
+            # Format times (show original times for display)
             event_dict['start_time'] = start_dt.strftime('%I:%M%p').lstrip('0').lower()
             event_dict['end_time'] = end_dt.strftime('%I:%M%p').lstrip('0').lower()
             
-            # For data attributes
+            # For data attributes (use clipped values for positioning)
             event_dict['start_minutes'] = start_minutes
             event_dict['duration'] = duration_minutes
             
@@ -341,7 +352,7 @@ def weekly_view(date):
             else:
                 event_dict['color'] = '#6b7280'
             
-            # Add ISO format for editing
+            # Add ISO format for editing (original times, not clipped)
             event_dict['start_datetime_local'] = start_dt.strftime('%Y-%m-%dT%H:%M')
             event_dict['end_datetime_local'] = end_dt.strftime('%Y-%m-%dT%H:%M')
             
