@@ -493,6 +493,11 @@ body {
     max-width: 120px;
 }
 
+/* Tag color indicators - vertical alignment */
+.edit-tag-color-indicator {
+    margin-bottom: 8px;
+}
+
 .event-edit-form textarea {
     min-height: 40px;
     resize: vertical;

@@ -112,12 +112,16 @@
 
                         <div class="form-group">
                             <label for="tag">Tag</label>
-                            <select id="tag" name="tag">
-                                <option value="">None</option>
-                                {% for tag in tags %}
-                                <option value="{{ tag.name }}">{{ tag.name }}</option>
-                                {% endfor %}
-                            </select>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span id="tag-color-indicator"
+                                    style="width: 20px; height: 20px; border-radius: 50%; background-color: transparent; border: 2px solid var(--border); flex-shrink: 0; align-self: center; display: inline-block;"></span>
+                                <select id="tag" name="tag">
+                                    <option value="">None</option>
+                                    {% for tag in tags %}
+                                    <option value="{{ tag.name }}" data-color="{{ tag.color }}">{{ tag.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -195,13 +199,18 @@
                                     <input type="hidden" name="end_datetime" class="edit-end-datetime-hidden">
 
                                     <input type="text" name="title" value="{{ event.title }}" placeholder="Title">
-                                    <select name="tag">
-                                        <option value="">None</option>
-                                        {% for tag in tags %}
-                                        <option value="{{ tag.name }}" {% if tag.name==event.tag %}selected{% endif %}>
-                                            {{ tag.name }}</option>
-                                        {% endfor %}
-                                    </select>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span class="edit-tag-color-indicator"
+                                            style="width: 20px; height: 20px; border-radius: 50%; background-color: {% if event.tag %}{{ tags|selectattr('name', 'equalto', event.tag)|map(attribute='color')|first|default('#6b7280') }}{% else %}transparent{% endif %}; border: 2px solid var(--border); flex-shrink: 0; align-self: center; display: inline-block;"></span>
+                                        <select name="tag" class="edit-tag-select">
+                                            <option value="">None</option>
+                                            {% for tag in tags %}
+                                            <option value="{{ tag.name }}" data-color="{{ tag.color }}" {% if
+                                                tag.name==event.tag %}selected{% endif %}>
+                                                {{ tag.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
 
                                     <div class="form-row single-line-times">
                                         <input type="date" class="edit-start-date"
@@ -265,6 +274,21 @@
                     setupOverlayKeyboardShortcuts(overlay, eventId);
                     // Set up click outside to close
                     setupClickOutsideToClose(overlay, eventId);
+
+                    // Set up tag color indicator for edit form
+                    const editTagSelect = overlay.querySelector('.edit-tag-select');
+                    const editIndicator = overlay.querySelector('.edit-tag-color-indicator');
+                    if (editTagSelect && editIndicator) {
+                        editTagSelect.addEventListener('change', function () {
+                            const selectedOption = this.options[this.selectedIndex];
+                            if (selectedOption.value === '') {
+                                editIndicator.style.backgroundColor = 'transparent';
+                            } else {
+                                const color = selectedOption.getAttribute('data-color') || '#6b7280';
+                                editIndicator.style.backgroundColor = color;
+                            }
+                        });
+                    }
                 } else {
                     eventBlock.classList.remove('editing');
                 }
@@ -353,6 +377,22 @@
             return true;
         }
 
+        // Tag color indicator update function
+        function updateTagColorIndicator() {
+            const tagSelect = document.getElementById('tag');
+            const indicator = document.getElementById('tag-color-indicator');
+            if (!tagSelect || !indicator) return;
+
+            const selectedOption = tagSelect.options[tagSelect.selectedIndex];
+
+            if (selectedOption.value === '') {
+                indicator.style.backgroundColor = 'transparent';
+            } else {
+                const color = selectedOption.getAttribute('data-color') || '#6b7280';
+                indicator.style.backgroundColor = color;
+            }
+        }
+
         window.addEventListener('DOMContentLoaded', function () {
             const dateStr = '{{ date }}';
 
@@ -392,6 +432,13 @@
                 localStorage.setItem('lastEventEndTime', endTime);
                 localStorage.setItem('lastEventEndDate', endDate);
             });
+
+            // Set up tag color indicator
+            const tagSelect = document.getElementById('tag');
+            if (tagSelect) {
+                tagSelect.addEventListener('change', updateTagColorIndicator);
+                updateTagColorIndicator(); // Initialize on load
+            }
         });
 
         // Zoom functionality
