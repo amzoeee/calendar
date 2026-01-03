@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Calendar</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <header class="calendar-header">
+            <div class="navigation">
+                <h1 class="date-title">Settings</h1>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="{{ url_for('daily_view', date=today) }}" class="nav-btn">Daily</a>
+                    <a href="{{ url_for('weekly_view', date=today) }}" class="nav-btn">Weekly</a>
+                    <a href="{{ url_for('stats_view', date=today) }}" class="nav-btn">Stats</a>
+                    <a href="{{ url_for('settings_view') }}" class="nav-btn view-toggle">Settings</a>
+                    <button onclick="document.getElementById('import-modal').style.display='block'"
+                        class="nav-btn">Import ICS</button>
+                </div>
+            </div>
+        </header>
+
+        <main class="calendar-content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <section class="settings-section">
+                <h2>Tag Management</h2>
+
+                <!-- Tag List -->
+                <div id="tag-list" class="tag-list">
+                    {% for tag in tags %}
+                    <div class="tag-item" draggable="true" data-tag-id="{{ tag.id }}">
+                        <span class="drag-handle">&#8942;&#8942;</span>
+                        <span class="tag-color-preview" style="background-color: {{ tag.color }};"></span>
+                        <span class="tag-name">{{ tag.name }}</span>
+                        <div class="tag-actions">
+                            <button class="btn-small"
+                                onclick="editTag({{ tag.id }}, '{{ tag.name }}', '{{ tag.color }}')">Edit</button>
+                            <button type="button" class="btn-small btn-danger"
+                                onclick="deleteTag({{ tag.id }}, '{{ tag.name }}')">Delete</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Add Tag Form -->
+                <div class="add-tag-form">
+                    <h3>Add New Tag</h3>
+                    <form action="{{ url_for('add_tag_route') }}" method="POST" class="tag-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="new-tag-name">Tag Name</label>
+                                <input type="text" id="new-tag-name" name="name" required placeholder="Enter tag name">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-tag-color">Color</label>
+                                <input type="color" id="new-tag-color" name="color" value="#6b7280">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Add Tag</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Edit Tag Modal -->
+            <div id="edit-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h3>Edit Tag</h3>
+                    <form id="edit-form" method="POST">
+                        <div class="form-group">
+                            <label for="edit-tag-name">Tag Name</label>
+                            <input type="text" id="edit-tag-name" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-tag-color">Color</label>
+                            <input type="color" id="edit-tag-color" name="color">
+                        </div>
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                            <button type="button" class="btn" onclick="closeEditModal()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Edit Tag Modal
+        function editTag(tagId, name, color) {
+            document.getElementById('edit-tag-name').value = name;
+            document.getElementById('edit-tag-color').value = color;
+            document.getElementById('edit-form').action = `/settings/tags/${tagId}/update`;
+            document.getElementById('edit-modal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+        }
+
+        function deleteTag(tagId, tagName) {
+            // Fetch event count for this tag
+            fetch(`/api/events?tag=${encodeURIComponent(tagName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const eventCount = data.events ? data.events.length : 0;
+                    let message = `Delete tag "${tagName}"?`;
+                    if (eventCount > 0) {
+                        message += `\n\nThis tag is used by ${eventCount} event(s). They will be set to untagged.`;
+                    }
+
+                    if (confirm(message)) {
+                        // Create and submit form
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = `/settings/tags/${tagId}/delete`;
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
+                })
+                .catch(error => {
+                    // Fallback if fetch fails
+                    if (confirm(`Delete tag "${tagName}"?`)) {
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.action = `/settings/tags/${tagId}/delete`;
+                        document.body.appendChild(form);
+                        form.submit();
+                    }
+                });
+        }
+
+        // Drag and Drop Functionality
+        let draggedElement = null;
+
+        document.querySelectorAll('.tag-item').forEach(item => {
+            item.addEventListener('dragstart', function (e) {
+                draggedElement = this;
+                this.classList.add('dragging');
+            });
+
+            item.addEventListener('dragend', function (e) {
+                this.classList.remove('dragging');
+            });
+
+            item.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(document.getElementById('tag-list'), e.clientY);
+                const dragging = document.querySelector('.dragging');
+                if (afterElement == null) {
+                    document.getElementById('tag-list').appendChild(dragging);
+                } else {
+                    document.getElementById('tag-list').insertBefore(dragging, afterElement);
+                }
+            });
+        });
+
+        document.getElementById('tag-list').addEventListener('drop', function (e) {
+            e.preventDefault();
+            saveTagOrder();
+        });
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.tag-item:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function saveTagOrder() {
+            const tagItems = document.querySelectorAll('.tag-item');
+            const tagIds = Array.from(tagItems).map(item => parseInt(item.dataset.tagId));
+
+            fetch('/settings/tags/reorder', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ tag_ids: tagIds })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Tag order saved');
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Close modal on escape key
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeEditModal();
+            }
+        });
+
+        // Close modal on outside click
+        document.getElementById('edit-modal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeEditModal();
+            }
+        });
+
+        // Scroll position preservation
+        window.addEventListener('beforeunload', function () {
+            localStorage.setItem('settingsScrollPos', window.scrollY);
+        });
+
+        // Restore scroll position on page load
+        window.addEventListener('load', function () {
+            const savedPos = localStorage.getItem('settingsScrollPos');
+            if (savedPos !== null) {
+                window.scrollTo(0, parseInt(savedPos));
+                localStorage.removeItem('settingsScrollPos');
+            }
+        });
+    </script>
+
+    <!-- Import ICS Modal -->
+    <div id="import-modal"
+        style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7);"
+        onclick="if(event.target.id === 'import-modal') this.style.display='none'">
+        <div
+            style="background: var(--bg-secondary); margin: 15% auto; padding: 2rem; border-radius: 8px; width: 90%; max-width: 500px; border: 1px solid var(--border);">
+            <h2
+                style="margin-top: 0; color: var(--text-primary); font-weight: 500; font-size: 1.25rem; margin-bottom: 0.5rem;">
+                Import Google Calendar</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">Upload a .ics file
+                exported from Google Calendar. All events will be imported with the selected tag.</p>
+
+            <form action="{{ url_for('import_ics') }}" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="ics_file">ICS File</label>
+                    <input type="file" id="ics_file" name="ics_file" accept=".ics" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="import_tag">Tag for All Events</label>
+                    <select id="import_tag" name="import_tag">
+                        <option value="">None</option>
+                        {% for tag in tags %}
+                        <option value="{{ tag.name }}">{{ tag.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 0.5rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Import</button>
+                    <button type="button" onclick="document.getElementById('import-modal').style.display='none'"
+                        class="btn">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>

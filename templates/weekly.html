@@ -24,6 +24,7 @@
                     <a href="{{ url_for('daily_view', date=sunday_date) }}" class="nav-btn">Daily</a>
                     <a href="{{ url_for('weekly_view', date=sunday_date) }}" class="nav-btn view-toggle">Weekly</a>
                     <a href="{{ url_for('stats_view', date=sunday_date) }}" class="nav-btn">Stats</a>
+                    <a href="{{ url_for('settings_view') }}" class="nav-btn">Settings</a>
                     <button onclick="document.getElementById('import-modal').style.display='block'"
                         class="nav-btn">Import ICS</button>
                 </div>

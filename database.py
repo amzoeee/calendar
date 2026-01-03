@@ -41,7 +41,76 @@ def init_db():
         ''')
         conn.commit()
     
+    # Create tags table if it doesn't exist
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='tags'")
+    tags_table_exists = cursor.fetchone()
+    
+    if not tags_table_exists:
+        cursor.execute('''
+            CREATE TABLE tags (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                color TEXT NOT NULL,
+                order_index INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+        
+        # Initialize default tags or migrate from JSON
+        init_default_tags(conn)
+    
     conn.close()
+
+def init_default_tags(conn):
+    """Initialize tags table with defaults or migrate from tags.json."""
+    import json
+    import os
+    
+    cursor = conn.cursor()
+    
+    # Check if tags.json exists
+    tags_file = os.path.join(os.path.dirname(__file__), 'tags.json')
+    
+    if os.path.exists(tags_file):
+        # Migrate from JSON
+        try:
+            with open(tags_file, 'r') as f:
+                data = json.load(f)
+                tags = data.get('tags', [])
+                
+                for tag in tags:
+                    cursor.execute(
+                        'INSERT INTO tags (name, color, order_index) VALUES (?, ?, ?)',
+                        (tag['name'], tag['color'], tag.get('order', 0))
+                    )
+                conn.commit()
+                print(f"Migrated {len(tags)} tags from tags.json to database")
+        except Exception as e:
+            print(f"Error migrating tags from JSON: {e}")
+            conn.rollback()
+            # Fall back to default tags
+            _create_default_tags(cursor, conn)
+    else:
+        # Create default tags
+        _create_default_tags(cursor, conn)
+
+def _create_default_tags(cursor, conn):
+    """Helper to create default tags in database."""
+    default_tags = [
+        {"name": "Work", "color": "#007bff", "order": 1},
+        {"name": "Personal", "color": "#28a745", "order": 2},
+        {"name": "Social", "color": "#ffc107", "order": 3},
+        {"name": "Important", "color": "#dc3545", "order": 4}
+    ]
+    
+    for tag in default_tags:
+        cursor.execute(
+            'INSERT INTO tags (name, color, order_index) VALUES (?, ?, ?)',
+            (tag['name'], tag['color'], tag['order'])
+        )
+    conn.commit()
+    print(f"Created {len(default_tags)} default tags in database")
 
 def migrate_schema(conn):
     """Migrate from old schema (date, time) to new schema (start_datetime, end_datetime)."""
@@ -187,6 +256,16 @@ def bulk_add_events(events, tag=''):
     return imported_count
 
 
+def get_events_by_tag(tag_name):
+    """Get all events with a specific tag"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM events WHERE tag = ?', (tag_name,))
+    events = cursor.fetchall()
+    conn.close()
+    return [dict(event) for event in events]
+
+
 def get_tag_hours_for_week(start_date, end_date):
     """Get cumulative hours per tag for each day in a week.
     
@@ -257,6 +336,114 @@ def get_tag_hours_for_week(start_date, end_date):
             current_day += timedelta(days=1)
     
     return result
+
+
+# Tag Management Functions
+
+def get_all_tags():
+    """Get all tags ordered by order_index."""
+    conn = get_db_connection()
+    tags = conn.execute('SELECT * FROM tags ORDER BY order_index').fetchall()
+    conn.close()
+    return [dict(tag) for tag in tags]
+
+def add_tag(name, color, order_index=None):
+    """Add a new tag."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # If no order specified, append to end
+    if order_index is None:
+        cursor.execute('SELECT MAX(order_index) FROM tags')
+        max_order = cursor.fetchone()[0]
+        order_index = (max_order or 0) + 1
+    
+    try:
+        cursor.execute(
+            'INSERT INTO tags (name, color, order_index) VALUES (?, ?, ?)',
+            (name, color, order_index)
+        )
+        conn.commit()
+        tag_id = cursor.lastrowid
+        conn.close()
+        return tag_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Tag '{name}' already exists")
+
+def update_tag(tag_id, name, color):
+    """Update a tag's name and color. If name changes, update all events with the old tag."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get old tag name
+    cursor.execute('SELECT name FROM tags WHERE id = ?', (tag_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        raise ValueError(f"Tag with id {tag_id} not found")
+    
+    old_name = result[0]
+    
+    try:
+        # Update tag
+        cursor.execute(
+            'UPDATE tags SET name = ?, color = ? WHERE id = ?',
+            (name, color, tag_id)
+        )
+        
+        # If name changed, update all events with the old tag name
+        if old_name != name:
+            cursor.execute(
+                'UPDATE events SET tag = ? WHERE tag = ?',
+                (name, old_name)
+            )
+        
+        conn.commit()
+        conn.close()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Tag '{name}' already exists")
+
+def delete_tag(tag_id):
+    """Delete a tag by ID. Sets events using this tag to None."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get tag name and count events using it
+    cursor.execute('SELECT name FROM tags WHERE id = ?', (tag_id,))
+    result = cursor.fetchone()
+    if not result:
+        conn.close()
+        return {'success': False, 'error': 'Tag not found'}
+    
+    tag_name = result[0]
+    cursor.execute('SELECT COUNT(*) FROM events WHERE tag = ?', (tag_name,))
+    event_count = cursor.fetchone()[0]
+    
+    # Set events using this tag to None
+    if event_count > 0:
+        cursor.execute('UPDATE events SET tag = NULL WHERE tag = ?', (tag_name,))
+    
+    # Delete the tag
+    cursor.execute('DELETE FROM tags WHERE id = ?', (tag_id,))
+    conn.commit()
+    conn.close()
+    return {'success': True, 'event_count': event_count}
+
+def reorder_tags(tag_ids):
+    """Reorder tags. tag_ids is a list of tag IDs in the desired order."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    for index, tag_id in enumerate(tag_ids):
+        cursor.execute(
+            'UPDATE tags SET order_index = ? WHERE id = ?',
+            (index + 1, tag_id)
+        )
+    
+    conn.commit()
+    conn.close()
 
 
 # Initialize the database when the module is imported

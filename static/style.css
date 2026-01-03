@@ -636,3 +636,211 @@ body {
 .view-toggle:hover {
     background: #707070;
 }
+
+/* Settings Page */
+.settings-section {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.settings-section h2 {
+    margin-top: 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.settings-section h3 {
+    color: var(--text-primary);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Tag List */
+.tag-list {
+    margin-bottom: 2rem;
+}
+
+.tag-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.tag-item:hover {
+    background: var(--bg-primary);
+}
+
+.tag-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.drag-handle {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    cursor: grab;
+    user-select: none;
+}
+
+.tag-color-preview {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+}
+
+.tag-name {
+    flex: 1;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.tag-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-small:hover {
+    background: var(--bg-tertiary);
+}
+
+.btn-danger {
+    background: #7f1d1d;
+    border-color: #991b1b;
+}
+
+.btn-danger:hover {
+    background: #991b1b;
+}
+
+/* Add Tag Form */
+.add-tag-form {
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+}
+
+.tag-form input[type="color"] {
+    width: 50px;
+    height: 34px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    padding: 2px;
+}
+
+.tag-form input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.tag-form input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 2px;
+}
+
+/* Ensure consistent font across settings */
+.settings-section,
+.settings-section * {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.settings-section input,
+.settings-section select,
+.settings-section button {
+    font-family: inherit;
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    width: 90%;
+    max-width: 400px;
+}
+
+.modal-content h3 {
+    margin-top: 0;
+}
+
+.modal-content input[type="color"] {
+    width: 80px;
+    height: 42px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    cursor: pointer;
+    padding: 2px;
+}
+
+.modal-content input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.modal-content input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 2px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+}
+
+/* Flash Messages */
+.flash-message {
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    border-radius: 6px;
+    border: 1px solid;
+}
+
+.flash-success {
+    background: #064e3b;
+    border-color: #059669;
+    color: #d1fae5;
+}
+
+.flash-error {
+    background: #7f1d1d;
+    border-color: #dc2626;
+    color: #fecaca;
+}

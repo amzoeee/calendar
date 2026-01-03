@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from datetime import datetime, timedelta
 import database
 import json
@@ -13,22 +13,8 @@ app.secret_key = 'your-secret-key-here-change-in-production'  # Required for fla
 
 
 def load_tags():
-    """Load tag configuration from tags.json"""
-    # Ensure default tags exist
-    create_default_tags.create_default_tags()
-    
-    tags_file = os.path.join(os.path.dirname(__file__), 'tags.json')
-    try:
-        with open(tags_file, 'r') as f:
-            data = json.load(f)
-            return data['tags']
-    except (FileNotFoundError, json.JSONDecodeError):
-        # Fallback if something goes wrong even after creation attempt
-        return [
-            {"name": "Work", "color": "#6366f1", "order": 1},
-            {"name": "Personal", "color": "#ec4899", "order": 2},
-            {"name": "Meeting", "color": "#10b981", "order": 3}
-        ]
+    """Load tag configuration from database"""
+    return database.get_all_tags()
 
 def get_tag_color(tag_name, tags):
     """Get the color for a specific tag"""
@@ -510,6 +496,86 @@ def import_ics():
         flash(f'Error importing events: {str(e)}', 'error')
     
     return redirect(request.referrer or url_for('index'))
+
+@app.route('/settings')
+def settings_view():
+    """Render settings page with current tags"""
+    tags = load_tags()
+    return render_template('settings.html', tags=tags, today=datetime.now().strftime('%Y-%m-%d'))
+
+@app.route('/settings/tags/add', methods=['POST'])
+def add_tag_route():
+    """Add a new tag"""
+    name = request.form.get('name', '').strip()
+    color = request.form.get('color', '#6b7280')
+    
+    if not name:
+        flash('Tag name is required', 'error')
+        return redirect(url_for('settings_view'))
+    
+    try:
+        database.add_tag(name, color)
+        flash(f'Tag "{name}" added successfully!', 'success')
+    except ValueError as e:
+        flash(str(e), 'error')
+    
+    return redirect(url_for('settings_view'))
+
+@app.route('/settings/tags/<int:tag_id>/update', methods=['POST'])
+def update_tag_route(tag_id):
+    """Update a tag's name and color"""
+    name = request.form.get('name', '').strip()
+    color = request.form.get('color', '#6b7280')
+    
+    if not name:
+        flash('Tag name is required', 'error')
+        return redirect(url_for('settings_view'))
+    
+    try:
+        database.update_tag(tag_id, name, color)
+        flash(f'Tag updated successfully!', 'success')
+    except ValueError as e:
+        flash(str(e), 'error')
+    
+    return redirect(url_for('settings_view'))
+
+@app.route('/settings/tags/<int:tag_id>/delete', methods=['POST'])
+def delete_tag_route(tag_id):
+    """Delete a tag"""
+    result = database.delete_tag(tag_id)
+    
+    if result['success']:
+        if result.get('event_count', 0) > 0:
+            flash(f'Tag deleted successfully! {result["event_count"]} event(s) set to untagged.', 'success')
+        else:
+            flash('Tag deleted successfully!', 'success')
+    else:
+        flash(result.get('error', 'Failed to delete tag'), 'error')
+    
+    return redirect(url_for('settings_view'))
+
+@app.route('/settings/tags/reorder', methods=['POST'])
+def reorder_tags_route():
+    """Reorder tags"""
+    tag_ids = request.get_json().get('tag_ids', [])
+    
+    try:
+        database.reorder_tags(tag_ids)
+        return {'success': True}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 400
+
+@app.route('/api/events')
+def get_events_api():
+    """API endpoint to get events, optionally filtered by tag"""
+    tag = request.args.get('tag')
+    
+    if tag:
+        events = database.get_events_by_tag(tag)
+    else:
+        events = database.fetch_all_events()
+    
+    return jsonify({'events': events})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
