@@ -278,6 +278,10 @@
                         const clickY = clickEvent.clientY - rect.top;
                         overlay.style.left = clickX + 'px';
                         overlay.style.top = clickY + 'px';
+                    } else {
+                        // Reset to top-left when navigating via keyboard
+                        overlay.style.left = '0';
+                        overlay.style.top = '0';
                     }
 
                     // Set up keyboard shortcuts for this overlay
@@ -329,6 +333,42 @@
             }, 10);
         }
 
+        function navigateToAdjacentEvent(currentEventId, direction) {
+            // Get all event blocks and extract their data
+            const eventBlocks = Array.from(document.querySelectorAll('.event-block'));
+            const events = eventBlocks.map(block => {
+                const overlay = block.querySelector('.event-edit-overlay');
+                if (!overlay) return null;
+
+                const eventId = parseInt(overlay.id.replace('edit-overlay-', ''));
+                const startMinutes = parseInt(block.dataset.startMinutes) || 0;
+
+                return { eventId, startMinutes, block };
+            }).filter(e => e !== null);
+
+            // Sort events by start time
+            events.sort((a, b) => a.startMinutes - b.startMinutes);
+
+            // Find current event index
+            const currentIndex = events.findIndex(e => e.eventId === currentEventId);
+            if (currentIndex === -1) return;
+
+            // Determine target index
+            let targetIndex;
+            if (direction === 'up') {
+                targetIndex = currentIndex - 1;
+                if (targetIndex < 0) return; // Already at first event
+            } else { // down
+                targetIndex = currentIndex + 1;
+                if (targetIndex >= events.length) return; // Already at last event
+            }
+
+            // Navigate to target event
+            const targetEventId = events[targetIndex].eventId;
+            toggleEventEdit(currentEventId); // Close current
+            toggleEventEdit(targetEventId); // Open target
+        }
+
         function setupOverlayKeyboardShortcuts(overlay, eventId) {
             // Remove any existing handler to avoid duplicates
             if (overlay.keydownHandler) {
@@ -366,6 +406,13 @@
                                 deleteForm.submit();
                             }
                         }
+                    }
+                } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    // Navigate to adjacent event (unless typing in input/textarea)
+                    if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        const direction = e.key === 'ArrowUp' ? 'up' : 'down';
+                        navigateToAdjacentEvent(eventId, direction);
                     }
                 }
             };
